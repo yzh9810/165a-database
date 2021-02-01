@@ -3,15 +3,19 @@ from template.table import Table
 class Database():
 
     def __init__(self):
-        self.tables = []
+        self.tables = {}
+        # self.disk = False
         pass
 
     def open(self, path):
-        pass
 
+        pass
     def close(self):
+        # try:
+        #     self.disk.close()
+        # except:
+        #     print("Error: Never open Disk")
         pass
-
     """
     # Creates a new table
     :param name: string         #Table name
@@ -20,6 +24,7 @@ class Database():
     """
     def create_table(self, name, num_columns, key):
         table = Table(name, num_columns, key)
+        self.tables[name] = table
         return table
 
     """
