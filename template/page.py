@@ -19,6 +19,10 @@ class Page:
         self.data[offset:offset + ColSize] = new_entry
         self.num_entries += 1
 
+    def offset_read(self, offset):
+        value = int.from_bytes(self.data[offset:offset + ColSize], "little")
+        return value
+
     def offset_write(self, offset, value):
         new_entry = value.to_bytes(ColSize, byteorder='little')
         self.data[offset:offset + ColSize] = new_entry
@@ -114,9 +118,9 @@ class PageRange:
 
     def insert_record_to_tail(self, rid, indirection, schema, time_stamp, column : list):
 
-        print("current tail page entry is = ", self.tail_pages[self.current_tail_pages].physical_pages[0].num_entries)
+        # print("current tail page entry is = ", self.tail_pages[self.current_tail_pages].physical_pages[0].num_entries)
         if self.tail_pages[self.current_tail_pages].has_capacity() == False:
-            print("need to add new tail page")
+            # print("need to add new tail page")
             self.add_new_tail()
 
         self.tail_pages[self.current_tail_pages].physical_pages[RIDCol].write(rid)

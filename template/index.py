@@ -13,11 +13,12 @@ class Index_struct:
     def Make_DataFrame_dic(self, column, Pagerange: PageRange):
         self.DataFrame[Pagerange] = {}
         pages = Pagerange.base_pages.physical_pages             #the columns in a pageblock
+        self.PageRange_index.append(PageRange)
         for i in range(pages[0].num_entries):
             offset = ColSize * i
             key = int.from_bytes(pages[column].data[offset : offset + ColSize], "little")
             # print(page_value)
-            self.DataFrame[Pagerange][key] = i
+            self.DataFrame[Pagerange][key] = offset
 
 
 class Index:
@@ -50,7 +51,8 @@ class Index:
         #         #     print("page is empty ", page)
 
         # print("key in locate = ", value)
-        Record_Location = {}
+        Record_Location = []
+        Record_PageRange = []
         for pagerange in self.table.page_directory.values():
             pages = pagerange.base_pages.physical_pages             #the columns in a pageblock
             for i in range(pages[0].num_entries):
@@ -59,11 +61,12 @@ class Index:
                 # print("page_value = ", page_value)
                 if page_value == value:
                     # print("i get the value", page_value)
-                    Record_Location[pagerange] = i*ColSize
+                    Record_Location.append(i*ColSize)
+                    Record_PageRange.append(pagerange)
                 # else:
                 #     print("page is empty ", page)
 
-        return Record_Location
+        return Record_Location, Record_PageRange
 
     # def locate_tail_page(self, column, value : int):
     #     return_value = {}
@@ -98,8 +101,10 @@ class Index:
     # optional: Create index on specific column
     """
 
-    def create_index(self, column_number, Pagerange : PageRange):
-        self.indices.Make_DataFrame_dic(column_number, Pagerange)
+    def create_index(self, column_number):
+        for Pagerange in self.table.page_directory.values():
+            if Pagerange not in self.indices.PageRange_index:
+                self.indices.Make_DataFrame_dic(column_number, Pagerange)
 
     """
     # optional: Drop index of specific column

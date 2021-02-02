@@ -54,7 +54,7 @@ def bytearray_to_record_tail(pageblocks : PageBlock, index : int, key_column: in
 
 
 def RID_in_Tail_page(RID : int, pagerange : PageRange, table : Table):       ##find the Record based on RID in tail page
-    print("RID_in_Tail_page = ", RID)
+    # print("RID_in_Tail_page = ", RID)
     Index_Tail_page = RID // 4096 + 1
     Entry_Tail_page = RID % 4096
     record = bytearray_to_record_tail(pagerange.tail_pages[Index_Tail_page], Entry_Tail_page, table.key, table)
@@ -122,13 +122,13 @@ class Query:
                 print("Error: didn't find anything")
                 break
 
-            print("tail page RID = ", tail_record.rid)
+            # print("tail page RID = ", tail_record.rid)
 
 
         Pagerange.base_pages.physical_pages[IndirectionCol].offset_write(offset, none)
         Pagerange.base_pages.physical_pages[RIDCol].offset_write(offset, none)
 
-        print("record.columns = ", record.columns)
+        # print("record.columns = ", record.columns)
 
 
 
@@ -195,20 +195,20 @@ class Query:
     """
 
     def select(self, key, column, query_columns):
-        Records_loc = self.table.index.locate(column + 4, key)
+        Records_loc, Records_PageRange = self.table.index.locate(column + 4, key)
         if len(Records_loc) == 0:
             print("Error: Fail to find the key")
             return False
         Records = []
-        for key in Records_loc.keys():
+        for i in range(len(Records_loc)):
             # print("page is", key)
-            record = bytearray_to_record(key, Records_loc[key], column, self.table)
+            record = bytearray_to_record(Records_PageRange[i], Records_loc[i], column, self.table)
             # print("RID = ", record.rid," record indirection = ", record.Indirection)
             if record.rid == record.Indirection and record.rid == none:
                 continue
+            record = Updated_Record(record, Records_PageRange[i], self.table)
+
             Records.append(record)
-            record = Updated_Record(record, key, self.table)
-            value = record.columns[1]
         return Records
 
 
@@ -223,18 +223,18 @@ class Query:
             print("Error: Don't have page range at all!!!!!")
             return False
 
-        Records_loc = self.table.index.locate(self.table.key + 4, key)
+        Records_loc, Record_PageRange = self.table.index.locate(self.table.key + 4, key)
 
-        if len(Records_loc.keys()) > 1:
+        if len(Records_loc) > 1:
             print("Error: find multiple keys!!!!")
             return False
-        if len(Records_loc.keys()) == 0:
+        if len(Records_loc) == 0:
             print("Error: don't find the key in the Table")
             return False
         #
-        page_range = list(Records_loc.keys())[0]              ## find the Page Range have the key
-        record = bytearray_to_record(page_range, Records_loc[page_range], self.table.key, self.table)
-        print("page_range.tail_pages[page_range.current_tail_pages].physical_pages[RIDCol].num_entries", page_range.tail_pages[page_range.current_tail_pages].physical_pages[RIDCol].num_entries)
+        page_range = list(Record_PageRange)[0]              ## find the Page Range have the key
+        record = bytearray_to_record(page_range, Records_loc[0], self.table.key, self.table)
+        # print("page_range.tail_pages[page_range.current_tail_pages].physical_pages[RIDCol].num_entries", page_range.tail_pages[page_range.current_tail_pages].physical_pages[RIDCol].num_entries)
         RID = page_range.tail_pages[page_range.current_tail_pages].physical_pages[RIDCol].num_entries * ColSize + PageSize*(page_range.current_tail_pages-1)   ##maybe need revise here
         # print("Rid in tail page is ", RID)
         Indirection = record.Indirection
@@ -249,14 +249,14 @@ class Query:
 
         # print("temp = ", bin(temp))
         Start_time = current_milli_time()
-        print("insert_record_to_tail RID = ", RID, "Indirection= ", Indirection, "Schema = ", bin(Schema), "columns = ", columns)
+        # print("insert_record_to_tail RID = ", RID, "Indirection= ", Indirection, "Schema = ", bin(Schema), "columns = ", columns)
         page_range.insert_record_to_tail(RID, Indirection, Schema, Start_time, columns)
 
         ## important !! change indirection in BasePage here
-        print("base range Idirention ",Records_loc[page_range] * ColSize, "  Schema = ", Schema | temp)
+        # print("base range Idirention ",Records_loc[0] * ColSize, "  Schema = ", Schema | temp)
 
-        page_range.base_pages.physical_pages[IndirectionCol].offset_write(Records_loc[page_range], RID)
-        page_range.base_pages.physical_pages[SchemaCol].offset_write(Records_loc[page_range], Schema | temp)
+        page_range.base_pages.physical_pages[IndirectionCol].offset_write(Records_loc[0], RID)
+        page_range.base_pages.physical_pages[SchemaCol].offset_write(Records_loc[0], Schema | temp)
 
         return True
 
@@ -272,7 +272,27 @@ class Query:
     """
 
     def sum(self, start_range, end_range, aggregate_column_index):
-        pass
+        self.table.index.create_index(self.table.key + 4)
+        sum_value = 0
+        for key in range(start_range, end_range + 1):
+            for page_range in self.table.page_directory.values():
+                try:
+                    offset = self.table.index.indices.DataFrame[page_range][key]
+
+                    record = bytearray_to_record(page_range, offset, self.table.key, self.table)
+                    if record.rid == record.Indirection and record.rid == none:
+                        continue
+                    record = Updated_Record(record, page_range, self.table)
+                    # print("find value with key =  ", key)
+
+                    value = record.columns[aggregate_column_index]
+                    # print("value =", value)
+
+                except:
+                    value = 0
+
+                sum_value = sum_value + value
+        return sum_value
 
     """
     incremenets one column of the record
