@@ -1,24 +1,35 @@
-from BTrees.IOBTree import IOBTree
 from itertools import chain
 from template.page import *
 from template.config import *
+
 """
 A data strucutre holding indices for various columns of a table. Key column should be indexd by default, other columns can be indexed through this object. Indices are usually B-Trees, but other data structures can be used as well.
 """
 class Index_struct:
-    def __init__(self):
+    def __init__(self, ):
         self.PageRange_index = []
         self.DataFrame = {}
+        self.key_column = None
 
-    def Make_DataFrame_dic(self, column, Pagerange: PageRange):
-        self.DataFrame[Pagerange] = {}
-        pages = Pagerange.base_pages.physical_pages             #the columns in a pageblock
-        self.PageRange_index.append(PageRange)
-        for i in range(pages[0].num_entries):
-            offset = ColSize * i
-            key = int.from_bytes(pages[column].data[offset : offset + ColSize], "little")
-            # print(page_value)
-            self.DataFrame[Pagerange][key] = offset
+    def DataFrame_dic_Make(self, column, table):
+        self.key_column = column
+        for Pagerange in table.PageRange_list:
+            self.DataFrame[Pagerange] = {}
+            self.PageRange_index.append(PageRange)
+
+            pages = Pagerange.base_pages.physical_pages             #the columns in a pageblock
+            for i in range(pages[0].num_entries):
+                offset = ColSize * i
+                key = int.from_bytes(pages[self.key_column].data[offset : offset + ColSize], "little")
+                # print(page_value)
+                self.DataFrame[Pagerange][key] = offset
+
+    def DataFrame_dic_Insert(self, key, Pagerange: PageRange, offset : int):
+        # print("self.PageRange_index" ,self.PageRange_index )
+        if Pagerange not in self.PageRange_index:
+            self.PageRange_index.append(Pagerange)
+            self.DataFrame[Pagerange] = {}
+        self.DataFrame[Pagerange][key] = offset
 
 
 class Index:
@@ -26,69 +37,37 @@ class Index:
     def __init__(self, table):
         # One index for each table. All our empty initially.
         self.table = table
-        self.indices = Index_struct()
-
+        self.indices = None
+        self.key_column = -1
     """
     # returns the location of all records with the given value on column "column"
     """
+    def has_indices(self):
+        if self.indices == None:
+            return False
+        else:
+            return True
 
-    def locate(self, column : int, value : int):
-        # return_value = {}
-        # return_page_range = []
-        # for range_page in self.table.page_directory.values():
-        #     for page in range_page.base_page:
-        #         if page.empty == False:
-        #             # print("numRecord = ", page.num_records)
-        #             for record_index in range(page.num_records):
-        #                 offset = column*col_size + col_size*record_index*(self.table.num_columns+4)
-        #                 page_value = int.from_bytes(page.data[offset : offset + col_size], "little")
-        #                 # print(page_value)
-        #                 if page_value == value:
-        #                     # print("i get the value", page_value)
-        #                     return_value[page] = col_size*record_index*(self.table.num_columns+4)
-        #                     return_page_range.append(range_page)
-        #         # else:
-        #         #     print("page is empty ", page)
 
-        # print("key in locate = ", value)
+    def locate(self,  value : int):
         Record_Location = []
         Record_PageRange = []
-        for pagerange in self.table.page_directory.values():
-            pages = pagerange.base_pages.physical_pages             #the columns in a pageblock
-            for i in range(pages[0].num_entries):
-                offset = ColSize * i
-                page_value = int.from_bytes(pages[column].data[offset : offset + ColSize], "little")
-                # print("page_value = ", page_value)
-                if page_value == value:
-                    # print("i get the value", page_value)
-                    Record_Location.append(i*ColSize)
-                    Record_PageRange.append(pagerange)
-                # else:
-                #     print("page is empty ", page)
+        for Page_range in self.table.PageRange_list:
+            try:
+                offset = self.indices.DataFrame[Page_range][value]
+                Record_Location.append(offset)
+                Record_PageRange.append(Page_range)
+            except:
+                pass
 
         return Record_Location, Record_PageRange
 
-    # def locate_tail_page(self, column, value : int):
-    #     return_value = {}
-    #     for range_page in self.table.page_directory.values():
-    #         for page in range_page.base_page:
-    #             if page.empty == False:
-    #                 for record_index in range(page.num_records):
-    #                     offset = column*col_size + col_size*record_index*(self.table.num_columns+4)
-    #                     # print("offset = ", offset)
-    #                     page_value = int.from_bytes(page.data[offset : offset + col_size], "little")
-    #                     # print(page_value)
-    #                     if page_value == value:
-    #                         # print("i get the value", page_value)
-    #                         return_value[page] = col_size*record_index*(self.table.num_columns+4)
-    #             # else:
-    #             #     print("page is empty ", page)
-    #     return return_value
+
 
     """
     # Returns the RIDs of all records with values in column "column" between "begin" and "end"
     """
-    def locate_by_PID(self, PID: int):
+    def locate_PID(self, PID: int):
         Pagerange = self.table.page_directory[PID // PageSize + 1]
         offset = PID % PageSize
         return Pagerange, offset
@@ -100,15 +79,19 @@ class Index:
     """
     # optional: Create index on specific column
     """
+    def insert_index(self, keys : list, Pagerange : PageRange, offset: int):
+        key = keys[self.key_column]
+        self.indices.DataFrame_dic_Insert(key, Pagerange, offset)
 
-    def create_index(self, column_number):
-        for Pagerange in self.table.page_directory.values():
-            if Pagerange not in self.indices.PageRange_index:
-                self.indices.Make_DataFrame_dic(column_number, Pagerange)
+    def create_index(self, key_column : int):
+        self.indices = Index_struct()
+        self.key_column = key_column
+        self.indices.DataFrame_dic_Make(key_column, self.table)
 
     """
     # optional: Drop index of specific column
     """
 
-    def drop_index(self, column_number):
-        pass
+    def drop_index(self):
+        self.indices = None
+        self.key_column = -1

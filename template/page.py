@@ -95,16 +95,7 @@ class PageRange:
         else:
             print("Error: Current Page Range have no Space")
             return False
-        # need to create new base page
-        # new_base_page = PageBlock(num_cols)
-        #         # new_base_page.physical_pages[RIDCol].write(rid)
-        #         # new_base_page.physical_pages[IndirectionCol].write(None)
-        #         # new_base_page.physical_pages[SchemaCol].write([0] * num_cols)
-        #         # new_base_page.physical_pages[TimestampCol].write(time_stamp)
-        #         # for x in range(num_cols):
-        #         #     new_base_page.physical_pages[4 + x].write(record[x])
-        #         # self.current_hold += 1
-        #         # self.base_pages.append(new_base_page)
+
 
     """
     For updates only. there can be as many tail pages as needed for one pagerange. I am using the non-cumulative way
@@ -133,18 +124,7 @@ class PageRange:
                 self.tail_pages[self.current_tail_pages].physical_pages[4 + j].write(column[j])
             else:
                 self.tail_pages[self.current_tail_pages].physical_pages[4 + j].write(none)
-        # need to create new tail page
-        # new_tail_page = PageBlock(num_cols)
-        #         # new_tail_page.physical_pages[RIDCol].write(rid)
-        #         # new_tail_page.physical_pages[IndirectionCol].write(indirection)
-        #         # new_tail_page.physical_pages[SchemaCol].write(schema)
-        #         # new_tail_page.physical_pages[TimestampCol].write(time_stamp)
-        #         # for x in range(num_cols):
-        #         #     if x == column:
-        #         #         i.physical_pages[4 + x].write(value)
-        #         #     else:
-        #         #         i.physical_pages[4 + x].write(None)
-        #         # self.tail_pages.append(new_tail_page)
+
         return
 
 
